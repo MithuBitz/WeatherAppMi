@@ -28,6 +28,11 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.mibtech.weatherapp.databinding.ActivityMainBinding
+import com.mibtech.weatherapp.models.WeatherResponse
+import com.mibtech.weatherapp.network.WeatherServices
+import retrofit2.*
+import retrofit2.converter.gson.GsonConverterFactory
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -120,6 +125,8 @@ class MainActivity : AppCompatActivity() {
             val longitude = mLastLocation?.longitude
             Log.i("Current Longitude: ", "$longitude")
 
+            getLocationWeatherDetails(latitude!!, longitude!!)
+
         }
     }
 
@@ -137,6 +144,52 @@ class MainActivity : AppCompatActivity() {
             Looper.myLooper()
         )
 
+    }
+
+    private fun getLocationWeatherDetails(latitude: Double, longitude: Double){
+        if(Constants.isNetworkAvailable(this)){
+            //When network is availabe then Retrofit call for api to prepare
+            val retrofit: Retrofit = Retrofit.Builder().baseUrl(Constants.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+            //Create or prepare a service which is based on retrofit
+            val service: WeatherServices = retrofit.create<WeatherServices>(WeatherServices::class.java)
+
+            val listCall: Call<WeatherResponse> = service.getWeather(latitude, longitude, Constants.METRIC_UNIT, Constants.APP_ID)
+
+            listCall.enqueue(object : Callback<WeatherResponse>{
+                override fun onResponse(
+                    call: Call<WeatherResponse>,
+                    response: Response<WeatherResponse>
+                ) {
+                    if (response.isSuccessful){
+                        val weatherList: WeatherResponse? = response.body()
+                        Log.i("Response Result: ", "$weatherList")
+                    } else {
+                        val rc = response.code()
+                        when(rc) {
+                            400 -> {
+                                Log.i("Error 400", "Bad Connection")
+                            }
+                            404 -> {
+                                Log.i("Error 404", "Not Found")
+                            }
+                            else -> {
+                                Log.i("Error", "Generic Error")
+                            }
+                        }
+                    }
+                }
+
+                override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
+                    Log.i("Opps!", t!!.message.toString())
+                }
+
+            })
+
+        }else {
+            Toast.makeText(this, "Opps! you dont have Internet", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onDestroy() {
