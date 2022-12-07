@@ -2,6 +2,7 @@ package com.mibtech.weatherapp
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,7 @@ import android.location.Location
 import android.location.LocationManager
 
 import android.net.Uri
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
@@ -17,6 +19,7 @@ import android.provider.Settings
 
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 
 
@@ -32,11 +35,14 @@ import com.mibtech.weatherapp.models.WeatherResponse
 import com.mibtech.weatherapp.network.WeatherServices
 import retrofit2.*
 import retrofit2.converter.gson.GsonConverterFactory
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
 
     private var binding: ActivityMainBinding? = null
+    private lateinit var progressDialog: Dialog
 
     //required variable to get the latitude and longitude of current location
     private lateinit var mFusedLocationClient: FusedLocationProviderClient
@@ -156,6 +162,8 @@ class MainActivity : AppCompatActivity() {
             val service: WeatherServices = retrofit.create<WeatherServices>(WeatherServices::class.java)
 
             val listCall: Call<WeatherResponse> = service.getWeather(latitude, longitude, Constants.METRIC_UNIT, Constants.APP_ID)
+            //Show progress dialog when retrofit feching the json result
+            showProgressDialog()
 
             listCall.enqueue(object : Callback<WeatherResponse>{
                 override fun onResponse(
@@ -163,7 +171,9 @@ class MainActivity : AppCompatActivity() {
                     response: Response<WeatherResponse>
                 ) {
                     if (response.isSuccessful){
+                        cancelProgressDialog()
                         val weatherList: WeatherResponse? = response.body()
+                        setUpUI(weatherList!!)
                         Log.i("Response Result: ", "$weatherList")
                     } else {
                         val rc = response.code()
@@ -183,6 +193,7 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
                     Log.i("Opps!", t!!.message.toString())
+                    cancelProgressDialog()
                 }
 
             })
@@ -196,4 +207,69 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         binding = null
     }
+
+    private fun showProgressDialog(){
+        progressDialog = Dialog(this@MainActivity)
+        progressDialog.setContentView(R.layout.custom_progress_dialog)
+        progressDialog.show()
+    }
+
+    private fun cancelProgressDialog(){
+        if (progressDialog != null) {
+            progressDialog.dismiss()
+        }
+    }
+
+    //Setup the UI according to the weather response
+
+    private fun setUpUI(weatherList: WeatherResponse){
+        for(i in weatherList.weather.indices){
+            Log.i("Weather Name: ", weatherList.weather.toString())
+
+            binding?.tvMain?.text = weatherList.weather[i].main
+            binding?.tvMainDescription?.text = weatherList.weather[i].description
+
+            binding?.tvTemp?.text = "${weatherList.main.temp} ${setUnitsAccordingToCountryCode(weatherList.sys.country)}"
+            binding?.tvHumidity?.text = weatherList.main.humidity.toString() + "%"
+
+            binding?.tvSunriseTime?.text = unixTimer(weatherList.sys.sunrise)
+            binding?.tvSunsetTime?.text = unixTimer(weatherList.sys.sunset)
+
+            binding?.tvMin?.text = weatherList.main.temp_min.toString() + " min"
+            binding?.tvMax?.text = weatherList.main.temp_max.toString() + " max"
+
+            binding?.tvSpeed?.text = weatherList.wind.speed.toString()
+            //binding?.tvSpeedUnit?.text
+
+            binding?.tvName?.text = weatherList.name
+            binding?.tvCountry?.text = weatherList.sys.country
+
+            when(weatherList.weather[i].icon){
+                "02n", "02d" -> binding?.ivMain?.setImageResource(R.drawable.cloud)
+                "10d", "10n" -> binding?.ivMain?.setImageResource(R.drawable.rain)
+                "11d", "11n" -> binding?.ivMain?.setImageResource(R.drawable.storm)
+                "13d", "13n" -> binding?.ivMain?.setImageResource(R.drawable.snowflake)
+                "01d", "01n" -> binding?.ivMain?.setImageResource(R.drawable.sunny)
+            }
+        }
+    }
+
+    //Function to help whether it is cellcius or farenhite
+    private fun setUnitsAccordingToCountryCode(countryCode: String): String? {
+        // Fahrenheit if US, Liberia, or Myanmar. Centigrade for the rest of the world
+        return if (countryCode == "US" || countryCode == "LR" || countryCode == "MM") {
+            "°F"
+        } else {
+            "°C"
+        }
+    }
+
+    //Set sunrise and sunset time to human recognizable time format
+    private fun unixTimer(timex: Long): String {
+        val date = Date(timex * 1000L)
+        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+        sdf.timeZone = TimeZone.getDefault()
+        return sdf.format(date)
+    }
+
 }
