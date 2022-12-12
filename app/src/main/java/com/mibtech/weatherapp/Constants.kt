@@ -12,6 +12,9 @@ object Constants {
     const val APP_ID: String = "2849b2617e766a62b2c9c40f69e86230"
     const val METRIC_UNIT: String = "metric"
 
+    const val PREFERENCE_NAME = "WeatherAppPreference"
+    const val WEATHER_RESPONSE_DATA = "weather_response_data"
+
 
     //Constant to check if the network is available or not
     fun isNetworkAvailable(context: Context): Boolean{
