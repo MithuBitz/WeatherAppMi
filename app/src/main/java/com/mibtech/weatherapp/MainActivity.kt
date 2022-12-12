@@ -1,28 +1,24 @@
 package com.mibtech.weatherapp
 
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-
 import android.location.Location
 import android.location.LocationManager
-
 import android.net.Uri
-import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
-
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
-
-
+import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.location.*
 import com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
 import com.karumi.dexter.Dexter
@@ -159,7 +155,7 @@ class MainActivity : AppCompatActivity() {
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
             //Create or prepare a service which is based on retrofit
-            val service: WeatherServices = retrofit.create<WeatherServices>(WeatherServices::class.java)
+            val service: WeatherServices = retrofit.create(WeatherServices::class.java)
 
             val listCall: Call<WeatherResponse> = service.getWeather(latitude, longitude, Constants.METRIC_UNIT, Constants.APP_ID)
             //Show progress dialog when retrofit feching the json result
@@ -176,8 +172,7 @@ class MainActivity : AppCompatActivity() {
                         setUpUI(weatherList!!)
                         Log.i("Response Result: ", "$weatherList")
                     } else {
-                        val rc = response.code()
-                        when(rc) {
+                        when(response.code()) {
                             400 -> {
                                 Log.i("Error 400", "Bad Connection")
                             }
@@ -192,7 +187,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
-                    Log.i("Opps!", t!!.message.toString())
+                    Log.i("Opps!", t.message.toString())
                     cancelProgressDialog()
                 }
 
@@ -213,11 +208,27 @@ class MainActivity : AppCompatActivity() {
         progressDialog.setContentView(R.layout.custom_progress_dialog)
         progressDialog.show()
     }
+    //TO display the menu
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    //What function is work when different menu button is pressed
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+
+        return when(item.itemId){
+
+            R.id.action_refresh -> {
+                requestLocationData()
+                true
+            } else ->
+                super.onOptionsItemSelected(item)
+        }
+    }
 
     private fun cancelProgressDialog(){
-        if (progressDialog != null) {
-            progressDialog.dismiss()
-        }
+        progressDialog.dismiss()
     }
 
     //Setup the UI according to the weather response
@@ -255,7 +266,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     //Function to help whether it is cellcius or farenhite
-    private fun setUnitsAccordingToCountryCode(countryCode: String): String? {
+    private fun setUnitsAccordingToCountryCode(countryCode: String): String {
         // Fahrenheit if US, Liberia, or Myanmar. Centigrade for the rest of the world
         return if (countryCode == "US" || countryCode == "LR" || countryCode == "MM") {
             "°F"
